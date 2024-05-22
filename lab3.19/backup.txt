@@ -1,0 +1,185 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <map>
+
+struct TreeElement
+{
+    std::pair<int, std::wstring> player;
+    TreeElement* tFather;
+    TreeElement* tLeft;
+    TreeElement* tRight;
+    bool isValueSet;
+};
+
+TreeElement* TreeCreate(TreeElement* &tRoot, int maxDepth, int currentDepth)
+{
+    TreeElement* temp = new TreeElement;
+    temp->tFather = tRoot;
+    temp->isValueSet = false;
+
+    if (currentDepth != maxDepth)
+    {
+
+        temp->tLeft = TreeCreate(temp, maxDepth, currentDepth + 1);
+        temp->tRight = TreeCreate(temp, maxDepth, currentDepth + 1);
+    }
+    else
+    {
+
+        temp->tLeft = nullptr;
+        temp->tRight = nullptr;
+    }
+
+    return temp;
+}
+
+void TreeFill(std::multimap <int, std::wstring, std::less<int>> players, TreeElement* &tRoot)
+{
+    std::multimap <int, std::wstring, std::less<int>>::iterator mIteratorLower = players.begin();
+    std::multimap <int, std::wstring, std::less<int>>::iterator mIteratorHigher = players.end();
+
+    std::multimap <int, std::wstring, std::less<int>>::iterator mIteratorMiddleLower = players.begin();
+    std::multimap <int, std::wstring, std::less<int>>::iterator mIteratorMiddleHigher = players.begin();
+
+    for (int i = 1; i < players.size() / 2; i++)
+    {
+        ++mIteratorMiddleHigher;
+        ++mIteratorMiddleLower;
+    }
+    ++mIteratorMiddleHigher;
+
+    --mIteratorHigher;
+
+    bool lastPlayerCorrection = true;
+    std::string switcher = "lower";
+
+    while (lastPlayerCorrection)
+    {
+        lastPlayerCorrection = mIteratorLower != mIteratorHigher;
+
+        if (tRoot->tLeft == nullptr, tRoot->tRight == nullptr)
+        {
+            if (switcher == "lower")
+            {
+                tRoot->player = *mIteratorLower;
+                ++mIteratorLower;
+                switcher = "higher";
+                tRoot->isValueSet = true;
+            }
+            else
+            {
+                tRoot->player = *mIteratorHigher;
+                --mIteratorHigher;
+                switcher = "lower";
+                tRoot->isValueSet = true;
+            }
+
+            tRoot = tRoot->tFather;
+        }
+        if (tRoot->tLeft->isValueSet == false)
+            tRoot = tRoot->tLeft;
+        else if (tRoot->tRight->isValueSet == false)
+            tRoot = tRoot->tRight;
+        else
+        {
+            while ((tRoot->tLeft->isValueSet == true) && (tRoot->tRight->isValueSet == true))
+            {
+                if (tRoot->tLeft->player.first >= tRoot->tRight->player.first)
+                    tRoot->player = tRoot->tLeft->player;
+                else
+                    tRoot->player = tRoot->tRight->player;
+                tRoot->isValueSet = true;
+
+                if (tRoot->tFather != nullptr)
+                    tRoot = tRoot->tFather;
+                else
+                    break;
+            }
+        }
+    }
+}
+
+void OutputTournament(TreeElement* tRoot, int depth, int pCount)
+{
+    if (tRoot != nullptr)
+    {
+        OutputTournament(tRoot->tLeft, depth+1, pCount);
+        for (int i = depth; i != pCount; i++)
+            std::cout << "      ";
+        std::wcout << tRoot->player.second << std::endl;
+        OutputTournament(tRoot->tRight, depth+1, pCount);
+    }
+}
+
+bool CreateTournament(std::string inputFileName)
+{
+    std::wifstream inputFile;
+    std::wofstream outputFile;
+
+    size_t playersCount;
+
+    setlocale(LC_ALL, "Russian");
+
+    inputFile.imbue(std::locale("rus_rus.1251"));
+    outputFile.imbue(std::locale("rus_rus.1251"));
+
+    inputFile.open(inputFileName);
+    if (inputFile.fail())
+    {
+        std::cout << "File opening error. Check the file name" << std::endl;
+        return false;
+    }
+
+    TreeElement* tRoot = nullptr;
+    std::pair<int, std::wstring> tempPlayer;
+
+    std::multimap <int, std::wstring, std::less<int>> PlayerToRating;
+
+    while (!inputFile.eof())
+    {
+        inputFile >> tempPlayer.second;
+        inputFile >> tempPlayer.first;
+        PlayerToRating.insert(std::pair <int, std::wstring> (tempPlayer.first, tempPlayer.second));
+    }     
+    inputFile.close(); 
+
+    playersCount = PlayerToRating.size();
+
+    tRoot = TreeCreate(tRoot, log2(playersCount), 0);
+
+    TreeFill(PlayerToRating, tRoot);
+
+    std::cout << "Here's your tournament chart:" << std::endl << std::endl;
+    OutputTournament(tRoot, 0, log2(playersCount));
+    std::cout << std::endl;
+
+    return true;
+}
+
+int main()
+{
+    setlocale(0, "Rus");
+
+    std::locale::global(std::locale("Russian_Russia"));
+
+    std::string inputCommand = "null";
+    std::cout << "Enter input file name to create a tournament or type 'exit' to leave" << std::endl;
+
+    while (true)
+    {
+        std::cin >> inputCommand;
+        if (inputCommand != "exit")
+        {
+            if (CreateTournament(inputCommand))
+                std::cout << "Task completed succesfully" << std::endl;
+        }
+        else
+            break;
+    }
+
+    return 0;
+}
+
